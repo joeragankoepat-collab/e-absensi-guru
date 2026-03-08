@@ -7,9 +7,9 @@ import { User } from '../types';
 
 interface HomeProps { user: User; }
 
-// School coordinates for SMPN 1 Padarincang
-const SCHOOL_LAT = -6.114196248039071;
-const SCHOOL_LNG = 106.2276108127061;
+// School coordinates for SMPN 1
+const SCHOOL_LAT = -6.096767830183668;
+const SCHOOL_LNG = 106.1559807364539;
 const ALLOWED_RADIUS_METERS = 50; 
 
 const SUBJECTS = [
