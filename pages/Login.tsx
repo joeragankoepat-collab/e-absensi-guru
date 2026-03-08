@@ -14,13 +14,53 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [cachedUsers, setCachedUsers] = useState<any[] | null>(null);
 
   useEffect(() => {
     const lastUsername = localStorage.getItem('last_username');
     if (lastUsername) {
       setUsername(lastUsername);
     }
+
+    // Pre-fetch user data to speed up login
+    const prefetchData = async () => {
+      try {
+        const response = await fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vQjao6HTaaJ0FLRLRxxnDuQh8c4mwKaZp7O20AQ4-RK1_DYjgtIbxjF74cz_BayfpgE06d_PLr8Tj-J/pub?gid=0&single=true&output=csv');
+        const csvText = await response.text();
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            setCachedUsers(results.data as any[]);
+          }
+        });
+      } catch (err) {
+        console.error("Pre-fetch failed:", err);
+      }
+    };
+    prefetchData();
   }, []);
+
+  const processLogin = (users: any[]) => {
+    const foundUser = users.find(
+      (u) => u.Username === username && u.Password === password
+    );
+
+    if (foundUser) {
+      onLogin({
+        id: foundUser.Username,
+        name: foundUser.nama,
+        nip: foundUser.NIP,
+        role: foundUser.Role as 'Guru',
+        avatar: foundUser.avatar,
+        school: foundUser.Sekolah,
+        employmentStatus: foundUser.Status
+      });
+    } else {
+      setError('Username atau password salah');
+    }
+    setIsLoading(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +68,12 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setError('');
     
     localStorage.setItem('last_username', username);
+
+    // Use cached data if available
+    if (cachedUsers) {
+      processLogin(cachedUsers);
+      return;
+    }
     
     try {
       const response = await fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vQjao6HTaaJ0FLRLRxxnDuQh8c4mwKaZp7O20AQ4-RK1_DYjgtIbxjF74cz_BayfpgE06d_PLr8Tj-J/pub?gid=0&single=true&output=csv');
@@ -38,24 +84,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         skipEmptyLines: true,
         complete: (results) => {
           const users = results.data as any[];
-          const foundUser = users.find(
-            (u) => u.Username === username && u.Password === password
-          );
-
-          if (foundUser) {
-            onLogin({
-              id: foundUser.Username,
-              name: foundUser.nama,
-              nip: foundUser.NIP,
-              role: foundUser.Role as 'Guru',
-              avatar: foundUser.avatar,
-              school: foundUser.Sekolah,
-              employmentStatus: foundUser.Status
-            });
-          } else {
-            setError('Username atau password salah');
-          }
-          setIsLoading(false);
+          setCachedUsers(users);
+          processLogin(users);
         },
         error: (error: any) => {
           console.error("Error parsing CSV:", error);
